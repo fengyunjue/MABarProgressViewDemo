@@ -72,7 +72,7 @@
     CGPathRelease(path);
     [_lineColor setStroke];
     [_progressRemainingColor setFill];
-    CGContextDrawPath(context, kCGPathFillStroke);
+    CGContextDrawPath(context, kCGPathStroke);
     
     CGPathRef path1 = CGPathCreateWithCylindroidProgressPath(CGRectMake(2, 2, rect.size.width-4, rect.size.height-4), lineWidth, self.progress, self.isCylindroid);
     CGContextAddPath(context, path1);
@@ -92,63 +92,85 @@
  @return 返回路径
  */
 CG_EXTERN CGMutablePathRef CGPathCreateWithCylindroidProgressPath(CGRect rect, CGFloat lineWidth, CGFloat progress, BOOL isCylindroid){
+    progress = MID(progress,0,1);
     if (isCylindroid) {
+        // 如果使用椭圆进度,则通过修改宽度使用画椭圆的函数即可
         CGFloat width = rect.size.width - rect.size.height;
-        rect.size.width = rect.size.height + (width * MID(progress,0,1));
+        rect.size.width = rect.size.height + (width * progress);
         return CGPathCreateWithCylindroidPath(rect, lineWidth);
     }else{
-        CGFloat amount = rect.size.width * MID(progress,0,1);
-        
+        // 进度的宽度
+        CGFloat amount = rect.size.width * progress;
+        // 先将矩形减去lineWidth
         rect = CGRectInset(rect, lineWidth, lineWidth);
-        
+        // 左右两边圆弧的半径
         CGFloat radius = rect.size.height/2;
         CGFloat width = rect.size.width;
         CGFloat height = rect.size.height;
+        // 路径的偏移量
         CGAffineTransform translation = CGAffineTransformMakeTranslation(rect.origin.x, rect.origin.y);
-        
+        // 创建一个可变路径
         CGMutablePathRef path = CGPathCreateMutable();
-        
-        if (amount <= width - radius && amount >= radius) {
+        // 进度分为三部分
+        if (amount  < radius && amount > 0) {// 1.宽度小于半径 http://upload-images.jianshu.io/upload_images/1429831-f2b9a679b7c39619.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/800
+            // 图1的x
+            CGFloat x = radius - amount;
+            // 图1的y,根据勾股定理计算
+            CGFloat y = radius - sqrt(pow(radius, 2)-pow(x, 2));
+            // 图1的topPoint
+            CGPoint topPoint = CGPointMake(amount, y);
+            // 使用acos计算出直角三角形的角度
+            CGFloat angle = acos(x/radius);
+            if (isnan(angle)) angle = 0;
+            // 将路径的起始点移动到topPoint
+            CGPathMoveToPoint(path, &translation, topPoint.x, topPoint.y);
+            // 画圆弧,原点为(raduis,raduis),半径为raduis,startAngle和endAngle如图1,最后一个参数为是否顺序画圆弧,但实际绘图结果会是逆时针的,也就是说设置为NO,绘图时才是顺时针
+            CGPathAddArc(path, &translation, radius, radius, radius, M_PI - angle, M_PI + angle, 0);
+        }else if (amount >= radius && amount <= width - radius){// 2.宽度大于圆弧的半径且小于最大宽度减半径 http://upload-images.jianshu.io/upload_images/1429831-42f16f05018ee651.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/800
+            // 起点
             CGPathMoveToPoint(path, &translation, 0, radius);
-            
+            // 画圆弧,图2.1
             CGPathAddArcToPoint(path, &translation, 0, 0, radius, 0, radius);
+            // 图2.2
             CGPathAddLineToPoint(path, &translation, amount, 0);
+            // 图2.3
             CGPathAddLineToPoint(path, &translation, amount, radius);
-            
+            // 移动点的位置
             CGPathMoveToPoint(path, &translation, 0, radius);
+            // 图2.4
             CGPathAddArcToPoint(path, &translation, 0, height, radius, height, radius);
+            // 图2.5
             CGPathAddLineToPoint(path, &translation, amount, height);
+            // 图2.6
             CGPathAddLineToPoint(path, &translation, amount, radius);
-        }else if (amount > radius){
+        }else{// 3.宽度大于最大宽度减半径 http://upload-images.jianshu.io/upload_images/1429831-5d18c924c7b12344.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/800
             CGPathMoveToPoint(path, &translation, 0, radius);
             
             CGFloat x = amount - (width - radius);
+            // 图3.1
             CGPathAddArcToPoint(path, &translation, 0, 0, radius, 0, radius);
+            // 图3.2
             CGPathAddLineToPoint(path, &translation, width - radius, 0);
-            CGFloat angle = -acos(x/radius);
-            if (isnan(angle)) angle = 0;
-            CGPathAddArc(path, &translation, width - radius, radius, radius, M_PI, angle, 0);
-            CGPathAddLineToPoint(path, &translation, amount, radius);
-            
-            CGPathMoveToPoint(path, &translation, 0, radius);
-            CGPathAddArcToPoint(path, &translation, 0, height, radius, height, radius);
-            CGPathAddLineToPoint(path, &translation, width - radius, height);
-            angle = acos(x/radius);
-            if (isnan(angle)) angle = 0;
-            CGPathAddArc(path, &translation, width - radius, radius, radius, -M_PI, angle, 1);
-            CGPathAddLineToPoint(path, &translation, amount, radius);
-        }else if (amount  < radius && amount > 0){
-            CGFloat x = radius - amount;// x轴三角边的长度
-            CGFloat y = radius - sqrt(pow(radius, 2)-pow(x, 2));// y轴三角边的长度
-            CGPoint topPoint = CGPointMake(amount, y);//
             CGFloat angle = acos(x/radius);
-            CGPathMoveToPoint(path, &translation, topPoint.x, topPoint.y);
-            CGPathAddArc(path, &translation, radius, radius, radius, M_PI - angle, M_PI + angle, 0);
+            if (isnan(angle)) angle = 0;
+            // 图3.3
+            CGPathAddArc(path, &translation, width - radius, radius, radius, M_PI, -angle, 0);
+            // 图3.4
+            CGPathAddLineToPoint(path, &translation, amount, radius);
+
+            CGPathMoveToPoint(path, &translation, 0, radius);
+            // 图3.5
+            CGPathAddArcToPoint(path, &translation, 0, height, radius, height, radius);
+            // 图3.6
+            CGPathAddLineToPoint(path, &translation, width - radius, height);
+            // 图3.7
+            CGPathAddArc(path, &translation, width - radius, radius, radius, -M_PI, angle, 1);
+            // 图3.8
+            CGPathAddLineToPoint(path, &translation, amount, radius);
         }
         return path;
     }
 }
-
 /**
  创建椭圆形
  
@@ -166,9 +188,11 @@ CG_EXTERN CGMutablePathRef CGPathCreateWithCylindroidPath(CGRect rect, CGFloat l
     // 路径的偏移量
     CGAffineTransform translation = CGAffineTransformMakeTranslation(rect.origin.x, rect.origin.y);
     
+    // 创建一个可变路径
     CGMutablePathRef path = CGPathCreateMutable();
-    
+    // 起点
     CGPathMoveToPoint(path, &translation, 0, radius);
+    // 画圆弧
     CGPathAddArcToPoint(path, &translation, 0, 0, radius, 0, radius);
     CGPathAddArcToPoint(path, &translation, width, 0, width, radius , radius);
     CGPathAddArcToPoint(path, &translation, width, height, width - radius, height, radius);

@@ -24,7 +24,7 @@
     progressView.progressRemainingColor = [UIColor yellowColor];
     progressView.progressColor = [UIColor blueColor];
     progressView.tag = 123456;
-    progressView.isCylindroid = YES;
+    progressView.isCylindroid = NO;
     progressView.backgroundColor = [UIColor greenColor];
     [self.view addSubview:progressView];
     
