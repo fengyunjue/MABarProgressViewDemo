@@ -11,12 +11,11 @@
 @interface MABarProgressView : UIView
 
 @property (nonatomic, assign) float progress;
-
 @property (nonatomic, strong) UIColor *lineColor;
-
 @property (nonatomic, strong) UIColor *progressRemainingColor;
-
 @property (nonatomic, strong) UIColor *progressColor;
+@property (nonatomic, assign) UIEdgeInsets outInsets;
+@property (nonatomic, assign) UIEdgeInsets  inInsets;
 
 @property (nonatomic, assign) BOOL isCylindroid;
 

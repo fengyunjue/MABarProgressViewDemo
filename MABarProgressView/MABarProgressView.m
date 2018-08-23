@@ -24,6 +24,8 @@
         _isCylindroid = NO;
         self.backgroundColor = [UIColor clearColor];
         self.opaque = NO;
+        _outInsets = UIEdgeInsetsMake(2, 2, 2, 2);
+        _inInsets = UIEdgeInsetsMake(2, 2, 2, 2);
     }
     return self;
 }
@@ -35,6 +37,20 @@
 - (void)setProgress:(float)progress{
     if (progress != _progress) {
         _progress = progress;
+        [self setNeedsDisplay];
+    }
+}
+
+- (void)setOutInsets:(UIEdgeInsets)outInsets{
+    if (UIEdgeInsetsEqualToEdgeInsets(outInsets, _outInsets)) {
+        _outInsets = outInsets;
+        [self setNeedsDisplay];
+    }
+}
+
+- (void)setInInsets:(UIEdgeInsets)inInsets{
+    if (UIEdgeInsetsEqualToEdgeInsets(inInsets, _inInsets)) {
+        _inInsets = inInsets;
         [self setNeedsDisplay];
     }
 }
@@ -65,16 +81,14 @@
 - (void)drawRect:(CGRect)rect{
     CGContextRef context = UIGraphicsGetCurrentContext();
     
-    CGFloat lineWidth = 2;
-    
-    CGPathRef path = CGPathCreateWithCylindroidPath(rect, lineWidth);
+    CGPathRef path = CGPathCreateWithCylindroidPath(rect, self.outInsets);
     CGContextAddPath(context, path);
     CGPathRelease(path);
     [_lineColor setStroke];
     [_progressRemainingColor setFill];
     CGContextDrawPath(context, kCGPathStroke);
     
-    CGPathRef path1 = CGPathCreateWithCylindroidProgressPath(CGRectMake(2, 2, rect.size.width-4, rect.size.height-4), lineWidth, self.progress, self.isCylindroid);
+    CGPathRef path1 = CGPathCreateWithCylindroidProgressPath(rect, UIEdgeInsetsMake(self.outInsets.top+self.inInsets.top, self.outInsets.left+self.inInsets.left, self.outInsets.bottom+self.inInsets.bottom, self.outInsets.right+self.inInsets.right), self.progress, self.isCylindroid);
     CGContextAddPath(context, path1);
     CGPathRelease(path1);
     [_progressColor set];
@@ -86,23 +100,23 @@
  创建椭圆进度条
  
  @param rect 进度条的总范围
- @param lineWidth lineWidth
+ @param inserts 间距
  @param progress 进度 0-1
  @param isCylindroid 是否一直保持椭圆,否的话,右边为矩形
  @return 返回路径
  */
-CG_EXTERN CGMutablePathRef CGPathCreateWithCylindroidProgressPath(CGRect rect, CGFloat lineWidth, CGFloat progress, BOOL isCylindroid){
+CG_EXTERN CGMutablePathRef CGPathCreateWithCylindroidProgressPath(CGRect rect, UIEdgeInsets inserts, CGFloat progress, BOOL isCylindroid){
     progress = MID(progress,0,1);
     if (isCylindroid) {
         // 如果使用椭圆进度,则通过修改宽度使用画椭圆的函数即可
         CGFloat width = rect.size.width - rect.size.height;
         rect.size.width = rect.size.height + (width * progress);
-        return CGPathCreateWithCylindroidPath(rect, lineWidth);
+        return CGPathCreateWithCylindroidPath(rect, inserts);
     }else{
+        // 先将矩形减去inserts
+        rect = UIEdgeInsetsInsetRect(rect, inserts);
         // 进度的宽度
         CGFloat amount = rect.size.width * progress;
-        // 先将矩形减去lineWidth
-        rect = CGRectInset(rect, lineWidth, lineWidth);
         // 左右两边圆弧的半径
         CGFloat radius = rect.size.height/2;
         CGFloat width = rect.size.width;
@@ -175,12 +189,12 @@ CG_EXTERN CGMutablePathRef CGPathCreateWithCylindroidProgressPath(CGRect rect, C
  创建椭圆形
  
  @param rect 椭圆的范围
- @param lineWidth lineWidth
+ @param inserts 间距
  @return 返回路径
  */
-CG_EXTERN CGMutablePathRef CGPathCreateWithCylindroidPath(CGRect rect, CGFloat lineWidth){
-    // 先将矩形减去lineWidth
-    rect = CGRectInset(rect, lineWidth, lineWidth);
+CG_EXTERN CGMutablePathRef CGPathCreateWithCylindroidPath(CGRect rect, UIEdgeInsets inserts){
+    // 先将矩形减去inserts
+    rect = UIEdgeInsetsInsetRect(rect, inserts);
     // 左右圆的半径
     CGFloat radius = rect.size.height/2;
     CGFloat width = rect.size.width;
